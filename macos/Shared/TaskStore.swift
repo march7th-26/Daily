@@ -7,6 +7,25 @@ struct Todo: Identifiable, Codable {
     var id = UUID()
     var title: String
     var completed = false
+    var createdAt: Date?
+    var completedAt: Date?
+    var archivedAt: Date?
+
+    init(id: UUID = UUID(), title: String, completed: Bool = false, createdAt: Date? = Date(), completedAt: Date? = nil, archivedAt: Date? = nil) {
+        self.id = id; self.title = title; self.completed = completed
+        self.createdAt = createdAt; self.completedAt = completedAt; self.archivedAt = archivedAt
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, title, completed, createdAt, completedAt, archivedAt }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        title = try values.decode(String.self, forKey: .title)
+        completed = try values.decodeIfPresent(Bool.self, forKey: .completed) ?? false
+        createdAt = try values.decodeIfPresent(Date.self, forKey: .createdAt)
+        completedAt = try values.decodeIfPresent(Date.self, forKey: .completedAt)
+        archivedAt = try values.decodeIfPresent(Date.self, forKey: .archivedAt)
+    }
 }
 
 enum Palette {
@@ -61,7 +80,7 @@ enum TaskDisk {
         do {
             try TaskDisk.write(updated)
             items = updated
-            WidgetCenter.shared.reloadAllTimelines()
+            WidgetCenter.shared.reloadTimelines(ofKind: "DaylightWidget")
         } catch { self.error = "保存失败：\(error.localizedDescription)" }
     }
     func add(_ title: String) {
@@ -69,10 +88,26 @@ enum TaskDisk {
         guard !clean.isEmpty else { return }
         commit(items + [Todo(title: String(clean.prefix(300)))])
     }
+    var activeItems: [Todo] { items.filter { $0.archivedAt == nil } }
+    var archivedItems: [Todo] { items.filter { $0.archivedAt != nil }.sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) } }
+    func edit(_ id: UUID, title: String) {
+        let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty, let index = items.firstIndex(where: { $0.id == id }) else { return }
+        var next = items; next[index].title = String(clean.prefix(300)); commit(next)
+    }
+    func archive(_ id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        var next = items; next[index].archivedAt = Date(); commit(next)
+    }
+    func restore(_ id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        var next = items; next[index].archivedAt = nil; commit(next)
+    }
     func toggle(_ id: UUID) {
         var next = items
         guard let index = next.firstIndex(where: { $0.id == id }) else { return }
         next[index].completed.toggle()
+        next[index].completedAt = next[index].completed ? Date() : nil
         commit(next)
     }
     func delete(_ id: UUID) { commit(items.filter { $0.id != id }) }

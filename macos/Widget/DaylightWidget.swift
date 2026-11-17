@@ -14,14 +14,14 @@ struct DailyProvider: TimelineProvider {
         completion(context.isPreview ? placeholder(in: context) : entry())
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<DailyEntry>) -> Void) {
-        let now = Date()
-        let midnight = Calendar.current.startOfDay(for: Calendar.current.date(byAdding: .day, value: 1, to: now)!)
-        let refresh = min(now.addingTimeInterval(900), midnight)
-        completion(Timeline(entries: [entry()], policy: .after(refresh)))
+        // The app explicitly reloads this widget kind after each successful save.
+        // A periodic reload competes with WidgetKit's daily budget and can make
+        // changes appear stale; there are no time-based task changes to predict.
+        completion(Timeline(entries: [entry()], policy: .never))
     }
     private func entry() -> DailyEntry {
         do {
-            return DailyEntry(date: Date(), tasks: try TaskDisk.read())
+            return DailyEntry(date: Date(), tasks: try TaskDisk.read().filter { $0.archivedAt == nil })
         } catch { return DailyEntry(date: Date(), tasks: [], failed: true) }
     }
 }

@@ -1,3 +1,6 @@
+Daily macOS 1.6.2
+
+
 Daily 的原生 macOS 版本，与仓库现有 Windows 版本独立发布。
 
 ### 下载

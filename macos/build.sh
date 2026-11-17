@@ -18,8 +18,10 @@ codesign --force --sign "$IDENTITY" --entitlements "$ROOT/Widget/Widget.entitlem
     "$APP/Contents/PlugIns/DaylightWidget.appex"
 codesign --force --sign "$IDENTITY" --entitlements "$ROOT/App/App.entitlements" "$APP"
 codesign --verify --deep --strict "$APP"
-lipo "$APP/Contents/MacOS/Daylight" -verify_arch x86_64 arm64
-lipo "$APP/Contents/PlugIns/DaylightWidget.appex/Contents/MacOS/DaylightWidget" -verify_arch x86_64 arm64
+lipo "$APP/Contents/MacOS/Daylight" -verify_arch x86_64
+lipo "$APP/Contents/MacOS/Daylight" -verify_arch arm64
+lipo "$APP/Contents/PlugIns/DaylightWidget.appex/Contents/MacOS/DaylightWidget" -verify_arch x86_64
+lipo "$APP/Contents/PlugIns/DaylightWidget.appex/Contents/MacOS/DaylightWidget" -verify_arch arm64
 pkgbuild --analyze --root "$STAGE/root" "$STAGE/components.plist"
 index=0
 while /usr/libexec/PlistBuddy -c "Print :$index" "$STAGE/components.plist" >/dev/null 2>&1; do
