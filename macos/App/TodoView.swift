@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct TodoView: View {
+    @EnvironmentObject private var journal: JournalStore
     @EnvironmentObject private var store: TaskStore
     @EnvironmentObject private var quotes: QuoteStore
     @EnvironmentObject private var updates: UpdateStore
@@ -96,7 +97,7 @@ struct TodoView: View {
             .alert("需要留意", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
                 Button("好") { store.error = nil }
             } message: { Text(store.error ?? "") }
-            .sheet(isPresented: $showHistory) { HistoryView().environmentObject(store).frame(minWidth: 360, minHeight: 400) }
+            .sheet(isPresented: $showHistory) { HistoryView().environmentObject(store).environmentObject(journal).frame(minWidth: 360, minHeight: 400) }
     }
 
     private func taskList(tight: Bool) -> some View {

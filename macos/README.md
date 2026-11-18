@@ -12,10 +12,10 @@
 
 ## 下载与安装
 
-从 [macOS v1.7.2 Release](https://github.com/march7th-26/Daily/releases/tag/macos-v1.7.2) 下载：
+从 [macOS v1.8.1 Release](https://github.com/march7th-26/Daily/releases/tag/macos-v1.8.1) 下载：
 
-- `Daily-macOS-1.7.2.pkg`：安装到 `/Applications/Daily.app`，后续在固定位置覆盖更新。
-- `Daily-macOS-1.7.2.zip`：解压后，将 `Daily.app` 拖入“应用程序”。
+- `Daily-macOS-1.8.1.pkg`：安装到 `/Applications/Daily.app`，后续在固定位置覆盖更新。
+- `Daily-macOS-1.8.1.zip`：解压后，将 `Daily.app` 拖入“应用程序”。
 
 更新前先退出 Daily。待办保存在应用之外，替换应用不会清空事项。
 
@@ -35,7 +35,8 @@
 - 拖动事项文字可调整顺序，显示上/下插入线，列表边缘自动滚动；取消拖动不改顺序，重启后保留。
 - 更新面板显示发布日志与用户反馈入口；更新前备份数据，校验大小、SHA-256 和安装包版本后再打开系统安装器。
 - 底部显示完成数量与进度条。
-- 菜单栏快捷面板可直接添加和勾选；底部图标依次为打开主窗口、最小化到 Dock、检查更新、退出。最小化后应用与小组件继续运行，可从 Dock 或菜单栏恢复窗口。
+- 点击菜单栏图标打开多行速记输入框，草稿自动保存在本机；手动点击归档图标后存入日志并清空草稿，退出图标关闭应用。配色自动跟随系统明暗模式。
+- 历史记录可筛选全部、待办和日志；点击日志可查看全文和编辑，也可删除。日志不计入待办进度或小组件。
 - 通知中心提供小号、中号小组件。在 macOS 13 上点击小组件打开应用，再完成操作。
 
 点击屏幕右上角日期时间 → “编辑小组件” → 搜索 **Daily** 并添加。主应用在保存、激活和检测到共享文件变化后请求刷新；小组件另有约半小时的兜底刷新，并在午夜更新日期。实际时机仍由 WidgetKit 调度，不保证即时刷新。升级后仍显示旧画面时，可移除并重新添加组件。
@@ -48,7 +49,7 @@
 ~/Library/Group Containers/group.com.example.Daylight/todos.json
 ```
 
-如需备份，先退出应用，再复制该文件。源码沿用最初 macOS 版本的 Bundle ID `com.example.Daylight` 和共享组标识，以保留已有用户的数据与组件关联。
+速记草稿与日志另存于同目录的 `journal.json`。如需备份，先退出应用，再复制这两个文件。源码沿用最初 macOS 版本的 Bundle ID `com.example.Daylight` 和共享组标识，以保留已有用户的数据与组件关联。
 
 一言请求使用 [一言公开 HTTPS 接口](https://developer.hitokoto.cn/sentence/)，不上传待办内容。句子与作者按接口响应显示，第三方内容与可用性由服务方提供。
 

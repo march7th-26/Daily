@@ -38,6 +38,7 @@ private final class ConcurrentFailures: @unchecked Sendable {
             try await updateTests()
             try await quoteTests()
             try parityTests()
+            try await journalTests()
             print("PASS: all regression checks; tests used temporary files and isolated preferences")
         } catch {
             fputs("FAIL: \(error)\n", stderr)
@@ -264,6 +265,37 @@ private final class ConcurrentFailures: @unchecked Sendable {
         _ = WindowController(defaults: defaults)
         try expect(defaults.object(forKey: "dailyPinned") == nil && defaults.object(forKey: "dailyEdgeDocking") == nil, "Retired window preferences were not removed")
         print("PASS: retired window preferences cleaned")
+    }
+
+    @MainActor private static func journalTests() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Daily-journal-tests-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("journal.json")
+        let store = JournalStore(url: url)
+        store.draft = "今天的想法\n第二行 📝"
+        try await Task.sleep(nanoseconds: 600_000_000)
+        try expect(JournalStore(url: url).draft == store.draft, "Debounced draft was not saved")
+        try expect(store.entries.isEmpty, "Draft was automatically archived")
+        try expect(store.archive(), "Manual archive failed")
+        let reopened = JournalStore(url: url)
+        try expect(reopened.draft.isEmpty && reopened.entries.count == 1, "Archive and draft clearing were not atomic")
+        let entry = reopened.entries[0]
+        try expect(entry.text == "今天的想法\n第二行 📝", "Multiline Unicode text was lost")
+        try expect(reopened.edit(entry.id, text: "编辑后的日志"), "Journal edit failed")
+        try expect(JournalStore(url: url).entries[0].text == "编辑后的日志", "Journal edit was not persisted")
+        try expect(!reopened.archive(), "Empty draft created a journal entry")
+        try expect(reopened.delete(entry.id) && JournalStore(url: url).entries.isEmpty, "Journal delete failed")
+        let blocked = directory.appendingPathComponent("blocked")
+        try Data("not a directory".utf8).write(to: blocked)
+        let failing = JournalStore(url: blocked.appendingPathComponent("journal.json"))
+        failing.draft = "不能丢失的草稿"
+        try expect(!failing.archive() && failing.draft == "不能丢失的草稿" && failing.entries.isEmpty, "Failed archive discarded draft")
+        try Data("corrupt".utf8).write(to: url)
+        let corrupt = JournalStore(url: url)
+        corrupt.draft = "新内容"
+        try expect(!corrupt.flush() && String(data: try Data(contentsOf: url), encoding: .utf8) == "corrupt", "Corrupt journal was overwritten")
+        print("PASS: journal draft autosave, manual archive, multiline Unicode, edit/delete and failure protection")
     }
 
 }
