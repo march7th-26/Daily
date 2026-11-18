@@ -7,7 +7,7 @@
 | 平台 | 系统要求 | 下载 |
 | --- | --- | --- |
 | Windows | Windows 10 / 11，.NET Framework 4.8 | [Daily.exe](https://github.com/march7th-26/Daily/releases/latest) |
-| macOS | macOS 13+，Intel / Apple Silicon | [PKG](https://github.com/march7th-26/Daily/releases/download/macos-v1.6.1/Daily-macOS-1.6.1.pkg) · [ZIP](https://github.com/march7th-26/Daily/releases/download/macos-v1.6.1/Daily-macOS-1.6.1.zip) |
+| macOS | macOS 13+，Intel / Apple Silicon | [PKG](https://github.com/march7th-26/Daily/releases/download/macos-v1.7.1/Daily-macOS-1.7.1.pkg) · [ZIP](https://github.com/march7th-26/Daily/releases/download/macos-v1.7.1/Daily-macOS-1.7.1.zip) |
 
 Windows 双击运行；macOS 安装到“应用程序”。macOS 包尚未做 Apple 公证，首次打开说明见 [macOS 文档](macos/README.md#下载与安装)。
 

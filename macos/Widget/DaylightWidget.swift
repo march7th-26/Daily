@@ -5,26 +5,35 @@ struct DailyEntry: TimelineEntry {
     let date: Date
     let tasks: [Todo]
     var failed = false
+
+    static func load(at date: Date = Date(), from repository: TaskRepository? = nil) -> Self {
+        do {
+            let repository = try repository ?? TaskRepository.shared()
+            return Self(date: date, tasks: try repository.read().filter { $0.archivedAt == nil })
+        } catch {
+            return Self(date: date, tasks: [], failed: true)
+        }
+    }
 }
+
 struct DailyProvider: TimelineProvider {
     func placeholder(in context: Context) -> DailyEntry {
         DailyEntry(date: Date(), tasks: [Todo(title: "读几页喜欢的书"), Todo(title: "出去走走", completed: true)])
     }
+
     func getSnapshot(in context: Context, completion: @escaping (DailyEntry) -> Void) {
-        completion(context.isPreview ? placeholder(in: context) : entry())
+        completion(context.isPreview ? placeholder(in: context) : .load())
     }
+
     func getTimeline(in context: Context, completion: @escaping (Timeline<DailyEntry>) -> Void) {
-        // The app explicitly reloads this widget kind after each successful save.
-        // A periodic reload competes with WidgetKit's daily budget and can make
-        // changes appear stale; there are no time-based task changes to predict.
-        completion(Timeline(entries: [entry()], policy: .never))
-    }
-    private func entry() -> DailyEntry {
-        do {
-            return DailyEntry(date: Date(), tasks: try TaskDisk.read().filter { $0.archivedAt == nil })
-        } catch { return DailyEntry(date: Date(), tasks: [], failed: true) }
+        let entry = DailyEntry.load()
+        // Save notifications are primary; this is a recovery path for missed requests,
+        // read failures, and the date label changing at midnight. WidgetKit schedules it.
+        let refresh = entry.failed ? entry.date.addingTimeInterval(5 * 60) : DailyShared.nextWidgetRefresh(after: entry.date)
+        completion(Timeline(entries: [entry], policy: .after(refresh)))
     }
 }
+
 // Resolve concrete RGB colors from WidgetKit's own environment. NSColor providers
 // can be flattened while WidgetKit archives a view for Notification Center.
 struct WidgetColors {
@@ -39,25 +48,38 @@ struct DailyWidgetView: View {
     @Environment(\.widgetFamily) private var family
     @Environment(\.colorScheme) private var scheme
     private var colors: WidgetColors { WidgetColors(dark: scheme == .dark) }
+    private var visibleTasks: [Todo] {
+        let ordered = entry.tasks.filter { !$0.completed } + entry.tasks.filter(\.completed)
+        return Array(ordered.prefix(family == .systemSmall ? 2 : 3))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("待办").font(.system(size: 14, weight: .semibold))
+                Text("Daily").font(.system(size: 14, weight: .semibold))
                 Spacer()
                 Text(entry.date.formatted(.dateTime.month().day())).font(.system(size: 10)).foregroundColor(colors.secondary)
             }
-            Text("已完成 \(entry.tasks.filter(\.completed).count) / \(entry.tasks.count) 项")
-                .font(.system(size: 11)).foregroundColor(colors.secondary)
             if entry.failed {
-                Text("打开应用检查数据共享配置").font(.system(size: 12)).foregroundColor(colors.secondary)
-            } else if entry.tasks.isEmpty {
-                Text("写下今天的第一件小事吧").font(.system(size: 12)).foregroundColor(colors.secondary)
+                Text("暂时无法读取待办").font(.system(size: 12)).foregroundColor(colors.secondary)
+                Text("点按打开 Daily 重试").font(.system(size: 11)).foregroundColor(colors.secondary)
             } else {
-                ForEach(Array(entry.tasks.prefix(family == .systemSmall ? 2 : 3))) { task in
-                    HStack(spacing: 8) {
-                        Image(systemName: task.completed ? "checkmark.circle.fill" : "circle").foregroundColor(colors.accent)
-                        Text(task.title).strikethrough(task.completed).foregroundColor(task.completed ? colors.secondary : colors.ink).lineLimit(1)
-                    }.font(.system(size: 12))
+                Text("已完成 \(entry.tasks.filter(\.completed).count) / \(entry.tasks.count) 项")
+                    .font(.system(size: 11)).foregroundColor(colors.secondary)
+                if entry.tasks.isEmpty {
+                    Text("写下今天的第一件小事吧").font(.system(size: 12)).foregroundColor(colors.secondary)
+                } else {
+                    ForEach(visibleTasks) { task in
+                        HStack(spacing: 8) {
+                            Image(systemName: task.completed ? "checkmark.circle.fill" : "circle").foregroundColor(colors.accent)
+                            Text(task.title).strikethrough(task.completed)
+                                .foregroundColor(task.completed ? colors.secondary : colors.ink).lineLimit(1)
+                        }.font(.system(size: 12))
+                    }
+                    if entry.tasks.count > visibleTasks.count {
+                        Text("还有 \(entry.tasks.count - visibleTasks.count) 项，点按查看")
+                            .font(.system(size: 10)).foregroundColor(colors.secondary)
+                    }
                 }
             }
             Spacer(minLength: 0)
@@ -80,8 +102,11 @@ struct DailyWidgetRoot: View {
         }
     }
 }
-@main struct DaylightWidget: Widget {
-    let kind = "DaylightWidget"
+#if !DAILY_TESTING
+@main
+#endif
+struct DaylightWidget: Widget {
+    let kind = DailyShared.widgetKind
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DailyProvider()) { entry in
             DailyWidgetRoot(entry: entry)

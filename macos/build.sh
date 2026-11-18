@@ -5,12 +5,19 @@ BUILD="$ROOT/.build"
 DIST="$ROOT/dist"
 IDENTITY="${CODESIGN_IDENTITY:--}"
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ROOT/App/Info.plist")
+STAGE=""
+cleanup() {
+    if [[ -n "$STAGE" ]]; then rm -rf "$STAGE"; fi
+    if [[ "${KEEP_BUILD_CACHE:-0}" != "1" ]]; then
+        rm -rf "$BUILD/DerivedData"
+    fi
+}
+trap cleanup EXIT
 mkdir -p "$BUILD" "$DIST"
 xcodebuild -project "$ROOT/Daylight.xcodeproj" -scheme Daylight \
     -configuration Release -destination 'generic/platform=macOS' \
     -derivedDataPath "$BUILD/DerivedData" CODE_SIGNING_ALLOWED=NO build
 STAGE="$(mktemp -d "$BUILD/package.XXXXXX")"
-trap 'rm -rf "$STAGE"' EXIT
 APP="$STAGE/root/Applications/Daily.app"
 mkdir -p "$STAGE/root/Applications"
 ditto "$BUILD/DerivedData/Build/Products/Release/Daylight.app" "$APP"
@@ -36,4 +43,10 @@ pkgbuild --root "$STAGE/root" --component-plist "$STAGE/components.plist" \
     --identifier com.example.Daylight.installer --version "$VERSION" --install-location / "$PKG"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 (cd "$DIST" && shasum -a 256 "$(basename "$PKG")" "$(basename "$ZIP")" > SHA256SUMS.txt)
+# Keep only the current version's packages after a successful build.
+for artifact in "$DIST"/Daily-macOS-[0-9]*.pkg "$DIST"/Daily-macOS-[0-9]*.zip; do
+    if [[ "$artifact" != "$PKG" && "$artifact" != "$ZIP" ]]; then
+        rm -f "$artifact"
+    fi
+done
 printf '\nBuilt macOS %s:\n%s\n%s\n' "$VERSION" "$PKG" "$ZIP"
