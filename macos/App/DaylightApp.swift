@@ -14,7 +14,7 @@ import AppKit
             TodoView().environmentObject(store).environmentObject(quotes).environmentObject(updates).environmentObject(windows)
                 .frame(minWidth: 280, minHeight: 320)
                 .background(WindowAttachment(controller: windows))
-                .onAppear { delegate.store = store; refresh(); updates.cleanupDownloads() }
+                .onAppear { delegate.store = store; delegate.windows = windows; refresh(); updates.cleanupDownloads() }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in refresh() }
                 .onOpenURL { _ in showMainWindow() }
                 .sheet(isPresented: $updates.showsDetails) { UpdateDetailsView().environmentObject(updates).environmentObject(store) }
@@ -25,21 +25,17 @@ import AppKit
             VStack(spacing: 0) {
                 TodoView(compact: true).environmentObject(store).environmentObject(quotes).environmentObject(updates).environmentObject(windows)
                 Divider()
-                VStack(spacing: 10) {
-                    HStack {
-                        Button("显示窗口") { showMainWindow() }
-                        Button("隐藏") { windows.hide() }
-                        Spacer()
-                        Button("退出") { NSApp.terminate(nil) }
-                    }
-                    HStack {
-                        Spacer()
-                        Button(updates.latestVersion == nil ? "检查更新…" : "发现更新…") {
-                            showMainWindow(focus: false)
-                            Task { await updates.presentDetails() }
-                        }.disabled(updates.isBusy)
-                    }
-                }.padding(14)
+                MenuPanelToolbar(
+                    showWindow: { showMainWindow() },
+                    minimizeWindow: { windows.minimize() },
+                    checkUpdates: {
+                        showMainWindow(focus: false)
+                        Task { await updates.presentDetails() }
+                    },
+                    quit: { NSApp.terminate(nil) },
+                    isUpdating: updates.isBusy,
+                    hasUpdate: updates.latestVersion != nil
+                )
             }.frame(width: 360, height: 520).onAppear { store.synchronize() }
         }.menuBarExtraStyle(.window)
         .commands {
