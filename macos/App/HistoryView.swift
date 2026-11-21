@@ -61,6 +61,10 @@ struct HistoryView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(task.title).font(.system(size: 14)).strikethrough(task.completed)
+                    ForEach(task.subtasks) { child in
+                        Label(child.title, systemImage: child.completed ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 12)).foregroundColor(Palette.secondary)
+                    }
                     Text("待办 · \(record.date.formatted(date: .abbreviated, time: .shortened))")
                         .font(.system(size: 11)).foregroundColor(Palette.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading)

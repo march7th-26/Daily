@@ -77,8 +77,63 @@ import Darwin
         update(id) {
             $0.completed.toggle()
             $0.completedAt = $0.completed ? Date() : nil
+            for index in $0.subtasks.indices {
+                $0.subtasks[index].completed = $0.completed
+                $0.subtasks[index].completedAt = $0.completedAt
+            }
         }
     }
+    @discardableResult
+    func addSubtask(_ parent: UUID, title: String) -> Bool {
+        guard let clean = normalized(title) else { return false }
+        return update(parent) {
+            $0.subtasks.append(Subtask(title: clean))
+            $0.completed = false
+            $0.completedAt = nil
+        }
+    }
+
+    @discardableResult
+    func editSubtask(_ parent: UUID, id: UUID, title: String) -> Bool {
+        guard let clean = normalized(title) else { return false }
+        return updateSubtask(parent, id: id) { $0.title = clean }
+    }
+
+    func toggleSubtask(_ parent: UUID, id: UUID) {
+        updateSubtask(parent, id: id) {
+            $0.completed.toggle()
+            $0.completedAt = $0.completed ? Date() : nil
+        }
+    }
+
+    func deleteSubtask(_ parent: UUID, id: UUID) {
+        update(parent) {
+            $0.subtasks.removeAll { $0.id == id }
+            Self.reconcile(&$0)
+        }
+    }
+
+    @discardableResult
+    private func updateSubtask(_ parent: UUID, id: UUID, change: (inout Subtask) -> Void) -> Bool {
+        var applied = false
+        let saved = update(parent) {
+            guard let index = $0.subtasks.firstIndex(where: { $0.id == id }) else { return }
+            change(&$0.subtasks[index])
+            Self.reconcile(&$0)
+            applied = true
+        }
+        return saved && applied
+    }
+
+    private static func reconcile(_ task: inout Todo) {
+        guard !task.subtasks.isEmpty else { return }
+        let completed = task.subtasks.allSatisfy(\.completed)
+        if task.completed != completed {
+            task.completed = completed
+            task.completedAt = completed ? Date() : nil
+        }
+    }
+
     func delete(_ id: UUID) { commit { $0.removeAll { $0.id == id } } }
 
     @discardableResult

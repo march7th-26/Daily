@@ -39,6 +39,7 @@ private final class ConcurrentFailures: @unchecked Sendable {
             try await quoteTests()
             try parityTests()
             try await journalTests()
+            try subtaskTests()
             print("PASS: all regression checks; tests used temporary files and isolated preferences")
         } catch {
             fputs("FAIL: \(error)\n", stderr)
@@ -296,6 +297,50 @@ private final class ConcurrentFailures: @unchecked Sendable {
         corrupt.draft = "新内容"
         try expect(!corrupt.flush() && String(data: try Data(contentsOf: url), encoding: .utf8) == "corrupt", "Corrupt journal was overwritten")
         print("PASS: journal draft autosave, manual archive, multiline Unicode, edit/delete and failure protection")
+    }
+
+    @MainActor private static func subtaskTests() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Daily-subtask-tests-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let repository = TaskRepository(url: directory.appendingPathComponent("todos.json"))
+        let store = TaskStore(repository: repository, refreshWidget: {})
+        try expect(store.add("父事项"), "Parent creation failed")
+        let parent = store.items[0].id
+        try expect(store.addSubtask(parent, title: "补充测试"), "Subtask creation failed")
+        try expect(store.addSubtask(parent, title: "修复 CI"), "Second subtask creation failed")
+        try expect(!store.addSubtask(parent, title: "  "), "Empty subtask was created")
+        try expect(!store.addSubtask(parent, title: String(repeating: "a", count: 201)), "Long subtask was accepted")
+        let first = store.items[0].subtasks[0].id
+        let second = store.items[0].subtasks[1].id
+        store.toggleSubtask(parent, id: first)
+        try expect(!store.items[0].completed, "Parent completed prematurely")
+        store.toggleSubtask(parent, id: second)
+        try expect(store.items[0].completed && store.items[0].completedAt != nil, "All children failed to complete parent")
+        store.toggleSubtask(parent, id: first)
+        try expect(!store.items[0].completed && store.items[0].completedAt == nil, "Parent did not reopen")
+        store.toggle(parent)
+        try expect(store.items[0].subtasks.allSatisfy(\.completed), "Parent completion did not complete children")
+        store.toggle(parent)
+        try expect(store.items[0].subtasks.allSatisfy { !$0.completed && $0.completedAt == nil }, "Parent reopening did not reopen children")
+        try expect(store.editSubtask(parent, id: first, title: "更新测试"), "Subtask edit failed")
+        let other = TaskStore(repository: repository, refreshWidget: {})
+        other.addSubtask(parent, title: "并发添加")
+        store.editSubtask(parent, id: second, title: "最新修改")
+        try expect(store.items[0].subtasks.count == 3, "Sibling edit lost concurrent child")
+        store.archive(parent)
+        try expect(store.activeItems.isEmpty && store.archivedItems[0].subtasks.count == 3, "Archive lost children")
+        try expect(!store.addSubtask(parent, title: "不能修改归档"), "Archived parent accepted child")
+        store.restore(parent)
+        store.deleteSubtask(parent, id: first)
+        try expect(store.items[0].subtasks.count == 2, "Child deletion failed")
+        try expect(try repository.read() == store.items, "Child data was not persisted")
+        var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(store.items)) as! [[String: Any]]
+        legacy[0].removeValue(forKey: "subtasks")
+        let decoded = try JSONDecoder().decode([Todo].self, from: JSONSerialization.data(withJSONObject: legacy))
+        try expect(decoded[0].subtasks.isEmpty, "Legacy data could not be decoded")
+        store.delete(parent)
+        try expect(try repository.read().isEmpty, "Parent deletion left orphan children")
+        print("PASS: child CRUD, completion propagation, concurrent edits, archive/restore and legacy compatibility")
     }
 
 }

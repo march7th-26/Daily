@@ -19,6 +19,14 @@ enum DailyShared {
     }
 }
 
+struct Subtask: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var title: String
+    var completed = false
+    var createdAt = Date()
+    var completedAt: Date?
+}
+
 struct Todo: Identifiable, Codable, Equatable {
     var id = UUID()
     var title: String
@@ -26,17 +34,19 @@ struct Todo: Identifiable, Codable, Equatable {
     var createdAt: Date?
     var completedAt: Date?
     var archivedAt: Date?
+    var subtasks: [Subtask] = []
 
-    init(id: UUID = UUID(), title: String, completed: Bool = false, createdAt: Date? = Date(), completedAt: Date? = nil, archivedAt: Date? = nil) {
+    init(id: UUID = UUID(), title: String, completed: Bool = false, createdAt: Date? = Date(), completedAt: Date? = nil, archivedAt: Date? = nil, subtasks: [Subtask] = []) {
         self.id = id
         self.title = title
         self.completed = completed
         self.createdAt = createdAt
         self.completedAt = completedAt
         self.archivedAt = archivedAt
+        self.subtasks = subtasks
     }
 
-    private enum CodingKeys: String, CodingKey { case id, title, completed, createdAt, completedAt, archivedAt }
+    private enum CodingKeys: String, CodingKey { case id, title, completed, createdAt, completedAt, archivedAt, subtasks }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -46,6 +56,7 @@ struct Todo: Identifiable, Codable, Equatable {
         createdAt = try values.decodeIfPresent(Date.self, forKey: .createdAt)
         completedAt = try values.decodeIfPresent(Date.self, forKey: .completedAt)
         archivedAt = try values.decodeIfPresent(Date.self, forKey: .archivedAt)
+        subtasks = try values.decodeIfPresent([Subtask].self, forKey: .subtasks) ?? []
     }
 }
 
@@ -57,7 +68,7 @@ struct TaskRepository {
     func read() throws -> [Todo] {
         guard FileManager.default.fileExists(atPath: url.path) else { return [] }
         let tasks = try JSONDecoder().decode([Todo].self, from: Data(contentsOf: url))
-        guard Set(tasks.map(\.id)).count == tasks.count else { throw CocoaError(.fileReadCorruptFile) }
+        guard Set(tasks.map(\.id)).count == tasks.count, tasks.allSatisfy({ Set($0.subtasks.map(\.id)).count == $0.subtasks.count }) else { throw CocoaError(.fileReadCorruptFile) }
         return tasks
     }
 
