@@ -12,10 +12,10 @@
 
 ## 下载与安装
 
-从 [macOS v1.8.1 Release](https://github.com/march7th-26/Daily/releases/tag/macos-v1.8.1) 下载：
+从 [macOS v1.9.2 Release](https://github.com/march7th-26/Daily/releases/tag/macos-v1.9.2) 下载：
 
-- `Daily-macOS-1.8.1.pkg`：安装到 `/Applications/Daily.app`，后续在固定位置覆盖更新。
-- `Daily-macOS-1.8.1.zip`：解压后，将 `Daily.app` 拖入“应用程序”。
+- `Daily-macOS-1.9.2.pkg`：安装到 `/Applications/Daily.app`，后续在固定位置覆盖更新。
+- `Daily-macOS-1.9.2.zip`：解压后，将 `Daily.app` 拖入“应用程序”。
 
 更新前先退出 Daily。待办保存在应用之外，替换应用不会清空事项。
 
